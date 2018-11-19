@@ -32,6 +32,7 @@
 #include <lmic.h>
 #include <hal/hal.h>
 #include <SPI.h>
+#include <RTCZero.h>
 
 // #define DEBUG 1
 
@@ -49,12 +50,15 @@ CayenneLPP lpp(51);
 Adafruit_Si7021 si7021;
 Adafruit_BME280 bme280;
 Adafruit_TSL2561_Unified tsl2561 = Adafruit_TSL2561_Unified(TSL2561_ADDR_FLOAT);
+RTCZero rtc;
+
 bool si7021_found = false;
 bool bme280_found = false;
 bool tsl2561_found= false;
 bool ecc508_found= false;
 bool voltage_found= true;
-
+bool rtc_init_done = false;
+bool rtc_alarm_raised = false;
 
 // This EUI must be in little-endian format, so least-significant-byte
 // first. When copying an EUI from ttnctl output, this means to reverse
@@ -102,74 +106,144 @@ float my_voltage() {
   return measuredvbat;
 }
 
-// -------------------------
+// --------RTC Stuff-----------------
 
+void rtcAlarm() {
+  rtc_alarm_raised = true;
+}
+
+void setupRTC () {
+  rtc.begin();
+  rtc.setEpoch(0);
+  rtc.attachInterrupt(rtcAlarm);
+  rtc_init_done = true;
+#if DEBUG
+  pinMode(LED_BUILTIN, OUTPUT);
+  digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on (HIGH is the voltage level)
+#endif
+}
+
+void sleepfor(int seconds) {
+  uint32_t now = rtc.getEpoch();
+  rtc.setAlarmEpoch(now + seconds);
+  rtc.enableAlarm(rtc.MATCH_YYMMDDHHMMSS);
+#if DEBUG
+  digitalWrite(LED_BUILTIN, LOW);    // turn the LED off by making the voltage LOW
+#endif
+  rtc.standbyMode();
+
+#if DEBUG
+  digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on (HIGH is the voltage level)
+#endif
+
+}
+
+// -----------------------
 void onEvent (ev_t ev) {
+#if DEBUG
     Serial.print(os_getTime());
     Serial.print(": ");
+#endif
     switch(ev) {
         case EV_SCAN_TIMEOUT:
+#if DEBUG
             Serial.println(F("EV_SCAN_TIMEOUT"));
+#endif
             break;
         case EV_BEACON_FOUND:
+#if DEBUG
             Serial.println(F("EV_BEACON_FOUND"));
+#endif
             break;
         case EV_BEACON_MISSED:
+#if DEBUG
             Serial.println(F("EV_BEACON_MISSED"));
+#endif
             break;
         case EV_BEACON_TRACKED:
+#if DEBUG
             Serial.println(F("EV_BEACON_TRACKED"));
+#endif
             break;
         case EV_JOINING:
+#if DEBUG
             Serial.println(F("EV_JOINING"));
+#endif
             break;
         case EV_JOINED:
+#if DEBUG
             Serial.println(F("EV_JOINED"));
+#endif
 
             // Disable link check validation (automatically enabled
             // during join, but not supported by TTN at this time).
             LMIC_setLinkCheckMode(0);
             break;
         case EV_RFU1:
+#if DEBUG
             Serial.println(F("EV_RFU1"));
+#endif
             break;
         case EV_JOIN_FAILED:
+#if DEBUG
             Serial.println(F("EV_JOIN_FAILED"));
+#endif
             break;
         case EV_REJOIN_FAILED:
+#if DEBUG
             Serial.println(F("EV_REJOIN_FAILED"));
+#endif
             break;
             break;
         case EV_TXCOMPLETE:
+#if DEBUG
             Serial.println(F("EV_TXCOMPLETE (includes waiting for RX windows)"));
+#endif
             if (LMIC.txrxFlags & TXRX_ACK)
+#if DEBUG
               Serial.println(F("Received ack"));
+#endif
             if (LMIC.dataLen) {
+#if DEBUG
               Serial.println(F("Received "));
               Serial.println(LMIC.dataLen);
               Serial.println(F(" bytes of payload"));
+#endif
             }
             // Schedule next transmission
-            os_setTimedCallback(&sendjob, os_getTime()+sec2osticks(TX_INTERVAL), do_send);
+            // os_setTimedCallback(&sendjob, os_getTime()+sec2osticks(TX_INTERVAL), do_send);
+            os_setTimedCallback(&sendjob, os_getTime()+sec2osticks(2), do_send);
             break;
         case EV_LOST_TSYNC:
+#if DEBUG
             Serial.println(F("EV_LOST_TSYNC"));
+#endif
             break;
         case EV_RESET:
+#if DEBUG
             Serial.println(F("EV_RESET"));
+#endif
             break;
         case EV_RXCOMPLETE:
             // data received in ping slot
+#if DEBUG
             Serial.println(F("EV_RXCOMPLETE"));
+#endif
             break;
         case EV_LINK_DEAD:
+#if DEBUG
             Serial.println(F("EV_LINK_DEAD"));
+#endif
             break;
         case EV_LINK_ALIVE:
+#if DEBUG
             Serial.println(F("EV_LINK_ALIVE"));
+#endif
             break;
          default:
+#if DEBUG
             Serial.println(F("Unknown event"));
+#endif
             break;
     }
 }
@@ -216,16 +290,21 @@ void readSensors() {
 void do_send(osjob_t* j){
     // Check if there is not a current TX/RX job running
     if (LMIC.opmode & OP_TXRXPEND) {
+#if DEBUG      
         Serial.println(F("OP_TXRXPEND, not sending"));
+#endif
     } else {
         // Prepare upstream data transmission at the next possible time.
 
+      sleepfor(60);
 
       lpp.reset();
       readSensors();
          
       LMIC_setTxData2(1, lpp.getBuffer(), lpp.getSize(), 0);
+#if DEBUG      
       Serial.println(F("Packet queued"));
+#endif
     }
     // Next TX is scheduled after TX_COMPLETE event.
 }
@@ -321,7 +400,7 @@ void setup() {
     delay(5000);
 #endif
 
-
+    setupRTC();
     setupI2C();
 
 
@@ -337,9 +416,5 @@ void setup() {
 
 
 void loop() {
-    
-
-
-    os_runloop_once();
-    
+  os_runloop_once();
 }
