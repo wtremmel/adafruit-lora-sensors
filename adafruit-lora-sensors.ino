@@ -83,7 +83,7 @@ static osjob_t sendjob;
 
 // Schedule TX every this many seconds (might become longer due to duty
 // cycle limitations).
-const unsigned TX_INTERVAL = 60;
+static unsigned TX_INTERVAL = 60;
 
 // Pin mapping
 const lmic_pinmap lmic_pins = {
@@ -103,6 +103,13 @@ float my_voltage() {
   measuredvbat *= 2;    // we divided by 2, so multiply back
   measuredvbat *= 3.3;  // Multiply by 3.3V, our reference voltage
   measuredvbat /= 1024; // convert to voltage
+
+  if (measuredvbat > 3.6) {
+    TX_INTERVAL = 60;
+  } else {
+    TX_INTERVAL = 120;
+  }
+  
   return measuredvbat;
 }
 
@@ -212,7 +219,7 @@ void onEvent (ev_t ev) {
             }
             // Schedule next transmission
             // os_setTimedCallback(&sendjob, os_getTime()+sec2osticks(TX_INTERVAL), do_send);
-            os_setTimedCallback(&sendjob, os_getTime()+sec2osticks(2), do_send);
+            os_setTimedCallback(&sendjob, os_getTime()+sec2osticks(1), do_send);
             break;
         case EV_LOST_TSYNC:
 #if DEBUG
@@ -267,7 +274,11 @@ void read_bme280() {
 }
 
 void read_voltage() {
-  lpp.addAnalogInput(5,my_voltage());
+  float v = my_voltage();
+
+  if (v <= 4.3) { // do not send if connected to USB
+    lpp.addAnalogInput(5,v);
+  }
 }
 
 void readSensors() {
@@ -296,7 +307,7 @@ void do_send(osjob_t* j){
     } else {
         // Prepare upstream data transmission at the next possible time.
 
-      sleepfor(60);
+      sleepfor(TX_INTERVAL);
 
       lpp.reset();
       readSensors();
