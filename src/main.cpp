@@ -34,7 +34,7 @@
 #include <SPI.h>
 #include <RTCZero.h>
 
-// #define DEBUG 1
+#define DEBUG 1
 
 #include <CayenneLPP.h>
 CayenneLPP lpp(51);
@@ -59,6 +59,8 @@ bool ecc508_found= false;
 bool voltage_found= true;
 bool rtc_init_done = false;
 bool rtc_alarm_raised = false;
+
+unsigned const rainPin = A1;
 
 // This EUI must be in little-endian format, so least-significant-byte
 // first. When copying an EUI from ttnctl output, this means to reverse
@@ -109,7 +111,7 @@ float my_voltage() {
   } else {
     TX_INTERVAL = 120;
   }
-  
+
   return measuredvbat;
 }
 
@@ -144,6 +146,78 @@ void sleepfor(int seconds) {
 #endif
 
 }
+
+void read_tsl2561() {
+  sensors_event_t event;
+  tsl2561.getEvent(&event);
+  lpp.addLuminosity(4,event.light);
+}
+
+void read_si7021() {
+  lpp.addTemperature(1, si7021.readTemperature());
+  lpp.addRelativeHumidity(2, si7021.readHumidity());
+}
+
+void read_bme280() {
+  lpp.addTemperature(1,bme280.readTemperature());
+  lpp.addRelativeHumidity(2,bme280.readHumidity());
+  lpp.addBarometricPressure(3,bme280.readPressure() / 100.0F);
+}
+
+void read_voltage() {
+  float v = my_voltage();
+
+  if (v <= 4.3) { // do not send if connected to USB
+    lpp.addAnalogInput(5,v);
+  }
+}
+
+void read_rain() {
+  unsigned int r = analogRead(rainPin);
+  lpp.addDigitalInput(6,r);
+}
+
+void readSensors() {
+  lpp.reset();
+  if (si7021_found) {
+    read_si7021();
+  }
+  if (bme280_found) {
+    read_bme280();
+  }
+  if (tsl2561_found) {
+    read_tsl2561();
+  }
+  if (voltage_found) {
+    read_voltage();
+  }
+  read_rain();
+}
+
+
+
+void do_send(osjob_t* j){
+    // Check if there is not a current TX/RX job running
+    if (LMIC.opmode & OP_TXRXPEND) {
+#if DEBUG
+        Serial.println(F("OP_TXRXPEND, not sending"));
+#endif
+    } else {
+        // Prepare upstream data transmission at the next possible time.
+
+      sleepfor(TX_INTERVAL);
+
+      lpp.reset();
+      readSensors();
+
+      LMIC_setTxData2(1, lpp.getBuffer(), lpp.getSize(), 0);
+#if DEBUG
+      Serial.println(F("Packet queued"));
+#endif
+    }
+    // Next TX is scheduled after TX_COMPLETE event.
+}
+
 
 // -----------------------
 void onEvent (ev_t ev) {
@@ -256,70 +330,6 @@ void onEvent (ev_t ev) {
 }
 
 
-void read_tsl2561() {
-  sensors_event_t event;
-  tsl2561.getEvent(&event);
-  lpp.addLuminosity(4,event.light);
-}
-
-void read_si7021() {
-  lpp.addTemperature(1, si7021.readTemperature());
-  lpp.addRelativeHumidity(2, si7021.readHumidity());
-}
-
-void read_bme280() {
-  lpp.addTemperature(1,bme280.readTemperature());
-  lpp.addRelativeHumidity(2,bme280.readHumidity());
-  lpp.addBarometricPressure(3,bme280.readPressure() / 100.0F);
-}
-
-void read_voltage() {
-  float v = my_voltage();
-
-  if (v <= 4.3) { // do not send if connected to USB
-    lpp.addAnalogInput(5,v);
-  }
-}
-
-void readSensors() {
-  lpp.reset();
-  if (si7021_found) {
-    read_si7021();
-  }
-  if (bme280_found) {
-    read_bme280();
-  }
-  if (tsl2561_found) {
-    read_tsl2561();
-  }
-  if (voltage_found) {
-    read_voltage();
-  }
-}
-
-
-void do_send(osjob_t* j){
-    // Check if there is not a current TX/RX job running
-    if (LMIC.opmode & OP_TXRXPEND) {
-#if DEBUG      
-        Serial.println(F("OP_TXRXPEND, not sending"));
-#endif
-    } else {
-        // Prepare upstream data transmission at the next possible time.
-
-      sleepfor(TX_INTERVAL);
-
-      lpp.reset();
-      readSensors();
-         
-      LMIC_setTxData2(1, lpp.getBuffer(), lpp.getSize(), 0);
-#if DEBUG      
-      Serial.println(F("Packet queued"));
-#endif
-    }
-    // Next TX is scheduled after TX_COMPLETE event.
-}
-
 
 //
 // Scan for sensors
@@ -351,7 +361,7 @@ void setupI2C() {
     if (error == 0) {
 #if DEBUG
       Serial.print("I2C device found at address 0x");
-      if (address<16) 
+      if (address<16)
         Serial.print("0");
       Serial.print(address,HEX);
       Serial.println("  !");
@@ -388,7 +398,7 @@ void setupI2C() {
         Serial.println(ecc508_found);
 #endif
       }
-      
+
       if (address == 0x76 || address == 0x77) {
         // BME280
         bme280_found = bme280.begin(address);
@@ -413,6 +423,10 @@ void setup() {
 
     setupRTC();
     setupI2C();
+
+    // setup Rain detector
+    analogReadResolution(12);
+    pinMode(rainPin, INPUT);
 
 
     // LMIC init
