@@ -34,7 +34,7 @@
 #include <SPI.h>
 #include <RTCZero.h>
 
-#define DEBUG 1
+// #define DEBUG 1
 
 #include <CayenneLPP.h>
 CayenneLPP lpp(51);
@@ -80,7 +80,6 @@ void os_getDevEui (u1_t* buf) { memcpy_P(buf, DEVEUI, 8);}
 static const u1_t PROGMEM APPKEY[16] = { 0x40, 0x87, 0x47, 0xE0, 0xEC, 0x04, 0xCC, 0x0B, 0x98, 0x72, 0x95, 0x08, 0xB8, 0x61, 0xC2, 0x4A };
 void os_getDevKey (u1_t* buf) {  memcpy_P(buf, APPKEY, 16);}
 
-static uint8_t mydata[] = "Hello, world!";
 static osjob_t sendjob;
 
 // Schedule TX every this many seconds (might become longer due to duty
@@ -139,6 +138,7 @@ void sleepfor(int seconds) {
 #if DEBUG
   digitalWrite(LED_BUILTIN, LOW);    // turn the LED off by making the voltage LOW
 #endif
+  USBDevice.standby();
   rtc.standbyMode();
 
 #if DEBUG
@@ -172,6 +172,12 @@ void read_voltage() {
   }
 }
 
+extern "C" char *sbrk(int i);
+void read_ram() {
+  char stack_dummy = 0;
+  lpp.addDigitalInput(7, &stack_dummy - sbrk(0));
+}
+
 void read_rain() {
   unsigned int r = analogRead(rainPin);
   lpp.addDigitalInput(6,r);
@@ -192,11 +198,13 @@ void readSensors() {
     read_voltage();
   }
   read_rain();
+  read_ram();
 }
 
 
 
 void do_send(osjob_t* j){
+
     // Check if there is not a current TX/RX job running
     if (LMIC.opmode & OP_TXRXPEND) {
 #if DEBUG
@@ -336,7 +344,6 @@ void onEvent (ev_t ev) {
 //
 void setupI2C() {
   byte error, address;
-  int nDevices;
 
 // 0x29 TSL45315 (Light)
 // 0x38 VEML6070 (Light)
@@ -360,18 +367,18 @@ void setupI2C() {
 
     if (error == 0) {
 #if DEBUG
-      Serial.print("I2C device found at address 0x");
+      Serial.print(F("I2C device found at address 0x"));
       if (address<16)
-        Serial.print("0");
+        Serial.print(F("0"));
       Serial.print(address,HEX);
-      Serial.println("  !");
+      Serial.println(F("  !"));
 #endif
 
       if (address == 0x39) {
         tsl2561 = Adafruit_TSL2561_Unified(address);
         tsl2561_found = tsl2561.begin();
 #if DEBUG
-        Serial.print("TSL2561 found? ");
+        Serial.print(F("TSL2561 found? "));
         Serial.println(tsl2561_found);
 #endif
         if (tsl2561_found) {
@@ -385,7 +392,7 @@ void setupI2C() {
         si7021 = Adafruit_Si7021();
         si7021_found = si7021.begin();
 #if DEBUG
-        Serial.print("Si7021 found? ");
+        Serial.print(F("Si7021 found? "));
         Serial.println(si7021_found);
 #endif
       }
@@ -394,7 +401,7 @@ void setupI2C() {
         // ECC508
         ecc508_found = ECCX08.begin();
 #if DEBUG
-        Serial.print("ECC508 found? ");
+        Serial.print(F("ECC508 found? "));
         Serial.println(ecc508_found);
 #endif
       }
@@ -403,7 +410,7 @@ void setupI2C() {
         // BME280
         bme280_found = bme280.begin(address);
 #if DEBUG
-        Serial.print("BME280 found? ");
+        Serial.print(F("BME280 found? "));
         Serial.println(bme280_found);
 #endif
       }
@@ -421,12 +428,14 @@ void setup() {
     delay(5000);
 #endif
 
+
     setupRTC();
     setupI2C();
 
+
     // setup Rain detector
-    analogReadResolution(12);
-    pinMode(rainPin, INPUT);
+    // analogReadResolution(12);
+    // pinMode(rainPin, INPUT);
 
 
     // LMIC init
@@ -437,6 +446,7 @@ void setup() {
 
     // Start job (sending automatically starts OTAA too)
     do_send(&sendjob);
+
 }
 
 
