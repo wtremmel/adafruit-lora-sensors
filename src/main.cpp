@@ -105,10 +105,11 @@ float my_voltage() {
   measuredvbat *= 3.3;  // Multiply by 3.3V, our reference voltage
   measuredvbat /= 1024; // convert to voltage
 
-  if (measuredvbat > 3.6) {
-    TX_INTERVAL = 60;
+  // LiPo battery is really strange
+  if (measuredvbat > 3.57 && measuredvbat < 3.64) {
+    TX_INTERVAL = 240;
   } else {
-    TX_INTERVAL = 120;
+    TX_INTERVAL = 60;
   }
 
   return measuredvbat;
@@ -166,10 +167,7 @@ void read_bme280() {
 
 void read_voltage() {
   float v = my_voltage();
-
-  if (v <= 4.3) { // do not send if connected to USB
-    lpp.addAnalogInput(5,v);
-  }
+  lpp.addAnalogInput(5,v);
 }
 
 extern "C" char *sbrk(int i);
@@ -179,8 +177,11 @@ void read_ram() {
 }
 
 void read_rain() {
+  pinMode(rainPin,INPUT_PULLUP);
+  delay(1000);
   unsigned int r = analogRead(rainPin);
-  lpp.addDigitalInput(6,r);
+  lpp.addDigitalInput(6,4096-r);
+  pinMode(rainPin,INPUT);
 }
 
 void readSensors() {
@@ -434,8 +435,7 @@ void setup() {
 
 
     // setup Rain detector
-    // analogReadResolution(12);
-    // pinMode(rainPin, INPUT);
+    analogReadResolution(12);
 
 
     // LMIC init
