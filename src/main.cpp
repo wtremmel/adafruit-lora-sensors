@@ -29,6 +29,8 @@
  *
  *******************************************************************************/
 
+#include <ArduinoLog.h>
+
 #include <lmic.h>
 #include <hal/hal.h>
 #include <SPI.h>
@@ -121,31 +123,27 @@ void rtcAlarm() {
   rtc_alarm_raised = true;
 }
 
-void setupRTC () {
+void setup_RTC () {
   rtc.begin();
   rtc.setEpoch(0);
   rtc.attachInterrupt(rtcAlarm);
   rtc_init_done = true;
-#if DEBUG
   pinMode(LED_BUILTIN, OUTPUT);
   digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on (HIGH is the voltage level)
-#endif
 }
 
 void sleepfor(int seconds) {
   uint32_t now = rtc.getEpoch();
+  Log.verbose(F("entering sleepfor(%d)"),seconds);
   rtc.setAlarmEpoch(now + seconds);
   rtc.enableAlarm(rtc.MATCH_YYMMDDHHMMSS);
-#if DEBUG
   digitalWrite(LED_BUILTIN, LOW);    // turn the LED off by making the voltage LOW
-#endif
   USBDevice.standby();
+  delay(100);
   rtc.standbyMode();
 
-#if DEBUG
   digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on (HIGH is the voltage level)
-#endif
-
+  Log.verbose(F("leaving sleepfor(%d)"),seconds);
 }
 
 void read_tsl2561() {
@@ -208,9 +206,7 @@ void do_send(osjob_t* j){
 
     // Check if there is not a current TX/RX job running
     if (LMIC.opmode & OP_TXRXPEND) {
-#if DEBUG
-        Serial.println(F("OP_TXRXPEND, not sending"));
-#endif
+      (F("OP_TXRXPEND, not sending"));
     } else {
         // Prepare upstream data transmission at the next possible time.
 
@@ -221,7 +217,7 @@ void do_send(osjob_t* j){
 
       LMIC_setTxData2(1, lpp.getBuffer(), lpp.getSize(), 0);
 #if DEBUG
-      Serial.println(F("Packet queued"));
+      Log.verbose(F("Packet queued"));
 #endif
     }
     // Next TX is scheduled after TX_COMPLETE event.
@@ -230,110 +226,70 @@ void do_send(osjob_t* j){
 
 // -----------------------
 void onEvent (ev_t ev) {
-#if DEBUG
-    Serial.print(os_getTime());
-    Serial.print(": ");
-#endif
+    Log.verbose(F("onEvent:"));
+
     switch(ev) {
         case EV_SCAN_TIMEOUT:
-#if DEBUG
-            Serial.println(F("EV_SCAN_TIMEOUT"));
-#endif
+            Log.verbose(F("EV_SCAN_TIMEOUT"));
             break;
         case EV_BEACON_FOUND:
-#if DEBUG
-            Serial.println(F("EV_BEACON_FOUND"));
-#endif
+            Log.verbose(F("EV_BEACON_FOUND"));
             break;
         case EV_BEACON_MISSED:
-#if DEBUG
-            Serial.println(F("EV_BEACON_MISSED"));
-#endif
+            Log.verbose(F("EV_BEACON_MISSED"));
             break;
         case EV_BEACON_TRACKED:
-#if DEBUG
-            Serial.println(F("EV_BEACON_TRACKED"));
-#endif
+            Log.verbose(F("EV_BEACON_TRACKED"));
             break;
         case EV_JOINING:
-#if DEBUG
-            Serial.println(F("EV_JOINING"));
-#endif
+            Log.verbose(F("EV_JOINING"));
             break;
         case EV_JOINED:
-#if DEBUG
-            Serial.println(F("EV_JOINED"));
-#endif
+            Log.verbose(F("EV_JOINED"));
 
             // Disable link check validation (automatically enabled
             // during join, but not supported by TTN at this time).
             LMIC_setLinkCheckMode(0);
             break;
         case EV_RFU1:
-#if DEBUG
-            Serial.println(F("EV_RFU1"));
-#endif
+            Log.verbose(F("EV_RFU1"));
             break;
         case EV_JOIN_FAILED:
-#if DEBUG
-            Serial.println(F("EV_JOIN_FAILED"));
-#endif
+            Log.verbose(F("EV_JOIN_FAILED"));
             break;
         case EV_REJOIN_FAILED:
-#if DEBUG
-            Serial.println(F("EV_REJOIN_FAILED"));
-#endif
+            Log.verbose(F("EV_REJOIN_FAILED"));
             break;
             break;
         case EV_TXCOMPLETE:
-#if DEBUG
-            Serial.println(F("EV_TXCOMPLETE (includes waiting for RX windows)"));
-#endif
+            Log.verbose(F("EV_TXCOMPLETE (includes waiting for RX windows)"));
             if (LMIC.txrxFlags & TXRX_ACK)
-#if DEBUG
-              Serial.println(F("Received ack"));
-#endif
+              Log.verbose(F("Received ack"));
             if (LMIC.dataLen) {
-#if DEBUG
-              Serial.println(F("Received "));
-              Serial.println(LMIC.dataLen);
-              Serial.println(F(" bytes of payload"));
-#endif
+              Log.verbose(F("Received %d bytes of payload"),LMIC.dataLen);
             }
             // Schedule next transmission
             // os_setTimedCallback(&sendjob, os_getTime()+sec2osticks(TX_INTERVAL), do_send);
             os_setTimedCallback(&sendjob, os_getTime()+sec2osticks(1), do_send);
             break;
         case EV_LOST_TSYNC:
-#if DEBUG
-            Serial.println(F("EV_LOST_TSYNC"));
-#endif
+            Log.verbose(F("EV_LOST_TSYNC"));
             break;
         case EV_RESET:
-#if DEBUG
-            Serial.println(F("EV_RESET"));
-#endif
+            Log.verbose(F("EV_RESET"));
             break;
         case EV_RXCOMPLETE:
             // data received in ping slot
-#if DEBUG
-            Serial.println(F("EV_RXCOMPLETE"));
-#endif
+            Log.verbose(F("EV_RXCOMPLETE"));
             break;
         case EV_LINK_DEAD:
-#if DEBUG
-            Serial.println(F("EV_LINK_DEAD"));
-#endif
+            Log.verbose(F("EV_LINK_DEAD"));
             break;
         case EV_LINK_ALIVE:
-#if DEBUG
-            Serial.println(F("EV_LINK_ALIVE"));
-#endif
+            Log.verbose(F("EV_LINK_ALIVE"));
             break;
          default:
-#if DEBUG
-            Serial.println(F("Unknown event"));
-#endif
+            Log.verbose(F("Unknown event"));
             break;
     }
 }
@@ -343,7 +299,7 @@ void onEvent (ev_t ev) {
 //
 // Scan for sensors
 //
-void setupI2C() {
+void setup_I2C() {
   byte error, address;
 
 // 0x29 TSL45315 (Light)
@@ -358,30 +314,19 @@ void setupI2C() {
 // 0x76 BME280
 // 0x77 BME680 (also BMP180)
 
-#if DEBUG
-  Serial.println("Scanning i2c bus");
-#endif
+  Log.verbose("Scanning i2c bus");
   Wire.begin();
   for(address = 1; address < 127; address++ ) {
     Wire.beginTransmission(address);
     error = Wire.endTransmission();
 
     if (error == 0) {
-#if DEBUG
-      Serial.print(F("I2C device found at address 0x"));
-      if (address<16)
-        Serial.print(F("0"));
-      Serial.print(address,HEX);
-      Serial.println(F("  !"));
-#endif
+      Log.verbose(F("I2C device found at address 0x%x !"),address);
 
       if (address == 0x39) {
         tsl2561 = Adafruit_TSL2561_Unified(address);
         tsl2561_found = tsl2561.begin();
-#if DEBUG
-        Serial.print(F("TSL2561 found? "));
-        Serial.println(tsl2561_found);
-#endif
+        Log.verbose(F("TSL2561 found? %T"),tsl2561_found);
         if (tsl2561_found) {
           // init the sensor
           tsl2561.enableAutoRange(true);
@@ -392,46 +337,58 @@ void setupI2C() {
         // SI7021
         si7021 = Adafruit_Si7021();
         si7021_found = si7021.begin();
-#if DEBUG
-        Serial.print(F("Si7021 found? "));
-        Serial.println(si7021_found);
-#endif
+        Log.verbose(F("Si7021 found? %T"),si7021_found);
       }
 
       if (address == 0x60) {
         // ECC508
         ecc508_found = ECCX08.begin();
-#if DEBUG
-        Serial.print(F("ECC508 found? "));
-        Serial.println(ecc508_found);
-#endif
+        Log.verbose(F("ECC508 found? %T"),ecc508_found);
       }
 
       if (address == 0x76 || address == 0x77) {
         // BME280
         bme280_found = bme280.begin(address);
-#if DEBUG
-        Serial.print(F("BME280 found? "));
-        Serial.println(bme280_found);
-#endif
+        Log.verbose(F("BME280 found? %T"),bme280_found);
       }
     }
   }
 }
 
-void setup() {
+void setup_serial() {
+  Serial.begin(115200);
 #if DEBUG
-    Serial.begin(115200);
-    while (!Serial);
-    Serial.println(F("Starting"));
-    delay(2000);
-#else
-    delay(5000);
+  while (!Serial);
 #endif
+}
+
+// Logging helper routines
+void printTimestamp(Print* _logOutput) {
+  char c[12];
+  sprintf(c, "%10lu ", millis());
+  _logOutput->print(c);
+}
+
+void printNewline(Print* _logOutput) {
+  _logOutput->print('\n');
+}
 
 
-    setupRTC();
-    setupI2C();
+void setup_logging() {
+  Log.begin(LOG_LEVEL_VERBOSE, &Serial);
+  Log.setPrefix(printTimestamp);
+  Log.setSuffix(printNewline);
+  Log.verbose("Logging has started");
+}
+
+void setup() {
+  setup_serial();
+  delay(5000);
+
+  setup_logging();
+
+  setup_RTC();
+  setup_I2C();
 
 
     // setup Rain detector
@@ -451,5 +408,6 @@ void setup() {
 
 
 void loop() {
+  Log.verbose(F("entering main loop"));
   os_runloop_once();
 }
