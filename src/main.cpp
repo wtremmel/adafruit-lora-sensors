@@ -62,6 +62,8 @@ bool voltage_found= true;
 bool rtc_init_done = false;
 bool rtc_alarm_raised = false;
 
+bool setup_complete = false;
+
 unsigned const rainPin = A1;
 
 // This EUI must be in little-endian format, so least-significant-byte
@@ -97,6 +99,12 @@ const lmic_pinmap lmic_pins = {
 .dio = {3, 6, LMIC_UNUSED_PIN},
 };
 
+void setup_serial() {
+  Serial.begin(115200);
+#if DEBUG
+  while (!Serial);
+#endif
+}
 
 // ----------- Battery stuff
 #define VBATPIN A7
@@ -134,13 +142,19 @@ void setup_RTC () {
 
 void sleepfor(int seconds) {
   uint32_t now = rtc.getEpoch();
+
+  if (!setup_complete)
+    return;
+
   Log.verbose(F("entering sleepfor(%d)"),seconds);
   rtc.setAlarmEpoch(now + seconds);
   rtc.enableAlarm(rtc.MATCH_YYMMDDHHMMSS);
   digitalWrite(LED_BUILTIN, LOW);    // turn the LED off by making the voltage LOW
-  USBDevice.standby();
-  delay(100);
-  rtc.standbyMode();
+  Serial.end();
+  USBDevice.detach(); // Safely detach the USB prior to sleeping
+  rtc.standbyMode();    // Sleep until next alarm match
+  USBDevice.attach();
+  setup_serial();
 
   digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on (HIGH is the voltage level)
   Log.verbose(F("leaving sleepfor(%d)"),seconds);
@@ -216,11 +230,10 @@ void do_send(osjob_t* j){
       readSensors();
 
       LMIC_setTxData2(1, lpp.getBuffer(), lpp.getSize(), 0);
-#if DEBUG
       Log.verbose(F("Packet queued"));
-#endif
     }
     // Next TX is scheduled after TX_COMPLETE event.
+    setup_complete = true;
 }
 
 
@@ -355,13 +368,6 @@ void setup_I2C() {
   }
 }
 
-void setup_serial() {
-  Serial.begin(115200);
-#if DEBUG
-  while (!Serial);
-#endif
-}
-
 // Logging helper routines
 void printTimestamp(Print* _logOutput) {
   char c[12];
@@ -404,10 +410,13 @@ void setup() {
     // Start job (sending automatically starts OTAA too)
     do_send(&sendjob);
 
+    setup_complete = true;
+
 }
 
 
 void loop() {
-  Log.verbose(F("entering main loop"));
+  setup_complete = true;
+  // Log.verbose(F("entering main loop"));
   os_runloop_once();
 }
