@@ -15,7 +15,7 @@ Definition of commands to be sent to my Lora based sensor nodes. To keep message
   * 0x03 0x00 - LED off
   * 0x03 0x01 - LED on
   * 0x03 0xff - LED shows status (default)
-* 0x99 - reboot. Reboots the node (if possible)
+* 0xff - reboot. Reboots the node (if possible)
 
 ### Sensor commands - (Byte 0 == 0x01)
 * 0xff - rediscover sensors. Rediscovers and re-initializes all sensors.
@@ -25,4 +25,7 @@ Definition of commands to be sent to my Lora based sensor nodes. To keep message
     * 0x11 0x02 - stop humidity reading
     * 0x11 0x04 - stop pressure reading
     * 0x11 0x07 - stop all readings (combined three bits together)
-    * 0x11 0x08 - restart all readings
+    * 0x11 0xff - restart all readings
+  * 0x12 - Configure TSL2561
+    * 0x12 0x01 - stop luminosity reading
+    * 0x12 0xff - restart reading

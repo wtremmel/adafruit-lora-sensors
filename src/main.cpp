@@ -330,6 +330,7 @@ void setup_I2C() {
   Log.verbose("Scanning i2c bus");
   Wire.begin();
   for(address = 1; address < 127; address++ ) {
+    Log.verbose(F("Trying 0x%x"),address);
     Wire.beginTransmission(address);
     error = Wire.endTransmission();
 
@@ -366,6 +367,7 @@ void setup_I2C() {
       }
     }
   }
+  Log.verbose(F("i2c bus scanning complete"));
 }
 
 // Logging helper routines
