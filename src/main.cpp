@@ -162,16 +162,19 @@ void sleepfor(int seconds) {
 
 void read_tsl2561() {
   sensors_event_t event;
+  Log.verbose(F("read_tsl2561"));
   tsl2561.getEvent(&event);
   lpp.addLuminosity(4,event.light);
 }
 
 void read_si7021() {
+  Log.verbose(F("read_si70721"));
   lpp.addTemperature(1, si7021.readTemperature());
   lpp.addRelativeHumidity(2, si7021.readHumidity());
 }
 
 void read_bme280() {
+  Log.verbose(F("read_bme280"));
   lpp.addTemperature(1,bme280.readTemperature());
   lpp.addRelativeHumidity(2,bme280.readHumidity());
   lpp.addBarometricPressure(3,bme280.readPressure() / 100.0F);
@@ -211,7 +214,7 @@ void readSensors() {
     read_voltage();
   }
   read_rain();
-  read_ram();
+  // read_ram();
 }
 
 
@@ -329,6 +332,7 @@ void setup_I2C() {
 
   Log.verbose("Scanning i2c bus");
   Wire.begin();
+  Wire.setClock(10000);
   for(address = 1; address < 127; address++ ) {
     Log.verbose(F("Trying 0x%x"),address);
     Wire.beginTransmission(address);
@@ -337,7 +341,7 @@ void setup_I2C() {
     if (error == 0) {
       Log.verbose(F("I2C device found at address 0x%x !"),address);
 
-      if (address == 0x39) {
+      if ((address == 0x39) || (address == 0x29) || (address == 0x49)) {
         tsl2561 = Adafruit_TSL2561_Unified(address);
         tsl2561_found = tsl2561.begin();
         Log.verbose(F("TSL2561 found? %T"),tsl2561_found);
