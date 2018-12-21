@@ -201,6 +201,8 @@ void read_rain() {
 
 void readSensors() {
   lpp.reset();
+  setup_I2C();
+
   if (si7021_found) {
     read_si7021();
   }
