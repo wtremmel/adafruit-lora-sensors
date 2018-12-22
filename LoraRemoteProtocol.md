@@ -15,6 +15,7 @@ Definition of commands to be sent to my Lora based sensor nodes. To keep message
   * 0x03 0x00 - LED off
   * 0x03 0x01 - LED on
   * 0x03 0xff - LED shows status (default)
+* 0x04 <epoch> - send current time to the node
 * 0xff - reboot. Reboots the node (if possible)
 
 ### Sensor commands - (Byte 0 == 0x01)
