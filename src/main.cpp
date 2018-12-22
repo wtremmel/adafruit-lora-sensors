@@ -99,6 +99,9 @@ const lmic_pinmap lmic_pins = {
 .dio = {3, 6, LMIC_UNUSED_PIN},
 };
 
+// forward declarations
+void setup_I2C(void);
+
 void setup_serial() {
   Serial.begin(115200);
 #if DEBUG
@@ -157,6 +160,7 @@ void sleepfor(int seconds) {
   setup_serial();
 
   digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on (HIGH is the voltage level)
+  delay(1000);
   Log.verbose(F("leaving sleepfor(%d)"),seconds);
 }
 
@@ -319,6 +323,7 @@ void onEvent (ev_t ev) {
 //
 void setup_I2C() {
   byte error, address;
+  unsigned int devices=0;
 
 // 0x29 TSL45315 (Light)
 // 0x38 VEML6070 (Light)
@@ -338,10 +343,11 @@ void setup_I2C() {
   for(address = 1; address < 127; address++ ) {
     Log.verbose(F("Trying 0x%x"),address);
     Wire.beginTransmission(address);
-    error = Wire.endTransmission();
+    error = Wire.endTransmission(false);
 
     if (error == 0) {
       Log.verbose(F("I2C device found at address 0x%x !"),address);
+      devices++;
 
       if ((address == 0x39) || (address == 0x29) || (address == 0x49)) {
         tsl2561 = Adafruit_TSL2561_Unified(address);
@@ -373,7 +379,7 @@ void setup_I2C() {
       }
     }
   }
-  Log.verbose(F("i2c bus scanning complete"));
+  Log.verbose(F("i2c bus scanning complete, %d devices"),devices);
 }
 
 // Logging helper routines
@@ -402,17 +408,17 @@ void setup() {
   setup_logging();
 
   setup_RTC();
-  setup_I2C();
+  // setup_I2C(); // happens when sensors are read
 
 
-    // setup Rain detector
-    analogReadResolution(12);
+  // setup Rain detector
+  analogReadResolution(12);
 
 
     // LMIC init
-    os_init();
+  os_init();
     // Reset the MAC state. Session and pending data transfers will be discarded.
-    LMIC_reset();
+  LMIC_reset();
 
 
     // Start job (sending automatically starts OTAA too)
