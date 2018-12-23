@@ -15,13 +15,12 @@ Definition of commands to be sent to my Lora based sensor nodes. To keep message
   * `0x03 0x00` - LED off
   * `0x03 0x01` - LED on
   * `0x03 0xff` - LED dynamic - shows status (default)
-* 0x04 <epoch> - send current time to the node
+* `0x04 0x00 0x00 0x00 0x00`  - send current time to the node
 * 0x05 <hours> <minutes> <seconds> - sleep now for some time (one byte each)
 * 0x06 0x00000000 - sleep now for seconds
 * 0xff - reboot. Reboots the node (if possible)
 
 ### Sensor commands - (Byte 0 == 0x01)
-* 0xff - rediscover sensors. Rediscovers and re-initializes all sensors.
 * 0x1x - configure sensor x (see below for list)
   * 0x11 - Configure BME280
     * 0x11 0x01 - stop temperature reading
