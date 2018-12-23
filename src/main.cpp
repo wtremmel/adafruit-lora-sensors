@@ -252,7 +252,7 @@ void do_send(osjob_t* j){
 }
 
 // -------------- Command Processing -----------------
-void process_system_led_command(u1_t len, u1_t *buffer) {
+void process_system_led_command(unsigned char len, unsigned char *buffer) {
   if (len == 0)
     return;
 
@@ -274,8 +274,15 @@ void process_system_led_command(u1_t len, u1_t *buffer) {
   }
 }
 
+void process_system_set_epoch(unsigned char len, unsigned char *buffer) {
+  if (len != 4) {
+    Log.error(F("Epoch has wrong len (%d != 4)"),len);
+    return;
+  }
+  rtc.setEpoch((uint32_t) buffer);
+}
 
-void process_system_command(u1_t len, u1_t *buffer) {
+void process_system_command(unsigned char len, unsigned char *buffer) {
   if (len == 0) {
     Log.error(F("Zero length system command"));
     return;
@@ -284,17 +291,20 @@ void process_system_command(u1_t len, u1_t *buffer) {
     case 0x03:
       process_system_led_command(len-1,buffer+1);
       break;
+    case 0x04:
+      process_system_set_epoch(len-1,buffer+1);
+      break;
   }
 }
 
-void process_sensor_command(u1_t len, u1_t *buffer) {
+void process_sensor_command(unsigned char len, unsigned char *buffer) {
   if (len == 0) {
     Log.error(F("Zero length sensor command"));
     return;
   }
 }
 
-void process_received_lora(u1_t len, u1_t *buffer) {
+void process_received_lora(unsigned char len, unsigned char *buffer) {
   if (len == 0)
     return;
 
