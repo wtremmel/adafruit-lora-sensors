@@ -63,6 +63,7 @@ bool rtc_init_done = false;
 bool rtc_alarm_raised = false;
 
 bool setup_complete = false;
+bool led_dynamic = true; // LED shows if system is asleep or not
 
 unsigned const rainPin = A1;
 
@@ -140,7 +141,9 @@ void setup_RTC () {
   rtc.attachInterrupt(rtcAlarm);
   rtc_init_done = true;
   pinMode(LED_BUILTIN, OUTPUT);
-  digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on (HIGH is the voltage level)
+  if (led_dynamic) {
+    digitalWrite(LED_BUILTIN, HIGH);
+  }
 }
 
 void sleepfor(int seconds) {
@@ -152,14 +155,17 @@ void sleepfor(int seconds) {
   Log.verbose(F("entering sleepfor(%d)"),seconds);
   rtc.setAlarmEpoch(now + seconds);
   rtc.enableAlarm(rtc.MATCH_YYMMDDHHMMSS);
-  digitalWrite(LED_BUILTIN, LOW);    // turn the LED off by making the voltage LOW
+  if (led_dynamic)
+    digitalWrite(LED_BUILTIN, LOW);
   Serial.end();
   USBDevice.detach(); // Safely detach the USB prior to sleeping
   rtc.standbyMode();    // Sleep until next alarm match
   USBDevice.attach();
   setup_serial();
 
-  digitalWrite(LED_BUILTIN, HIGH);   // turn the LED on (HIGH is the voltage level)
+  if (led_dynamic)
+    digitalWrite(LED_BUILTIN, HIGH);
+
   delay(1000);
   Log.verbose(F("leaving sleepfor(%d)"),seconds);
 }
@@ -245,6 +251,66 @@ void do_send(osjob_t* j){
     setup_complete = true;
 }
 
+// -------------- Command Processing -----------------
+void process_system_led_command(u1_t len, u1_t *buffer) {
+  if (len == 0)
+    return;
+
+  switch (buffer[0]) {
+    case 0:
+      led_dynamic = false;
+      pinMode(LED_BUILTIN,LOW);
+      break;
+    case 1:
+      led_dynamic = false;
+      pinMode(LED_BUILTIN, HIGH);
+      break;
+    case 0xff:
+      led_dynamic = true;
+      break;
+    default:
+      Log.error(F("Unknown LED command %d"), buffer[0]);
+      break;
+  }
+}
+
+
+void process_system_command(u1_t len, u1_t *buffer) {
+  if (len == 0) {
+    Log.error(F("Zero length system command"));
+    return;
+  }
+  switch (buffer[0]) {
+    case 0x03:
+      process_system_led_command(len-1,buffer+1);
+      break;
+  }
+}
+
+void process_sensor_command(u1_t len, u1_t *buffer) {
+  if (len == 0) {
+    Log.error(F("Zero length sensor command"));
+    return;
+  }
+}
+
+void process_received_lora(u1_t len, u1_t *buffer) {
+  if (len == 0)
+    return;
+
+  Log.verbose(F("Processing %d bytes of received data"),len);
+  switch (buffer[0]) {
+    case 0:
+      process_system_command(len-1,buffer+1);
+      break;
+    case 1:
+      process_sensor_command(len-1,buffer+1);
+      break;
+    default:
+      Log.error(F("Unknown command %d"),buffer[0]);
+      break;
+  }
+}
 
 // -----------------------
 void onEvent (ev_t ev) {
@@ -289,6 +355,7 @@ void onEvent (ev_t ev) {
               Log.verbose(F("Received ack"));
             if (LMIC.dataLen) {
               Log.verbose(F("Received %d bytes of payload"),LMIC.dataLen);
+              process_received_lora(LMIC.dataLen,LMIC.frame);
             }
             // Schedule next transmission
             // os_setTimedCallback(&sendjob, os_getTime()+sec2osticks(TX_INTERVAL), do_send);
