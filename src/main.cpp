@@ -47,10 +47,13 @@ CayenneLPP lpp(51);
 #include "Adafruit_BME280.h"
 #include "Adafruit_TSL2561_U.h"
 #include <ArduinoECCX08.h>
+#include "Adafruit_ADS1115"
 
 // Global Objects
 Adafruit_Si7021 si7021;
 Adafruit_BME280 bme280;
+Adafruit_ADS1115 ads1115;
+
 Adafruit_TSL2561_Unified tsl2561 = Adafruit_TSL2561_Unified(TSL2561_ADDR_FLOAT);
 RTCZero rtc;
 
@@ -61,6 +64,7 @@ bool ecc508_found= false;
 bool voltage_found= true;
 bool rtc_init_done = false;
 bool rtc_alarm_raised = false;
+bool adc1115_found = false;
 
 bool setup_complete = false;
 bool led_dynamic = true; // LED shows if system is asleep or not
@@ -406,7 +410,7 @@ void setup_I2C() {
 // 0x38 VEML6070 (Light)
 // 0x39 TSL2561
 // 0x40 SI7021
-// 0x48 4*AD converter
+// 0x48 - 0x4b 4*AD converter
 // 0x4a GY49 or MAX44009 Light Sensor
 // 0x50 PCF8583P
 // 0x57 ATMEL732
@@ -441,6 +445,13 @@ void setup_I2C() {
         si7021 = Adafruit_Si7021();
         si7021_found = si7021.begin();
         Log.verbose(F("Si7021 found? %T"),si7021_found);
+      }
+
+      if ((address >= 0x48) && (address <= 0x4b)) {
+        ads1115 = Adafruit_ADS1115(address);
+        ads1115.begin();
+        ads1115_found = true;
+        Log.notice(F("ADS1115 found at 0x%x"),address);
       }
 
       if (address == 0x60) {
