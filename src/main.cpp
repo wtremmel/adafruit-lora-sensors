@@ -213,6 +213,12 @@ void read_rain() {
   pinMode(rainPin,INPUT);
 }
 
+void read_adc1115() {
+  for (int i=0; i<=3; i++) {
+    lpp.addLuminosity(20+i,ads1115.readADC_SingleEnded(i));
+  }
+}
+
 void readSensors() {
   lpp.reset();
   setup_I2C();
@@ -228,6 +234,9 @@ void readSensors() {
   }
   if (voltage_found) {
     read_voltage();
+  }
+  if (adc1115_found) {
+    read_adc1115();
   }
   read_rain();
   // read_ram();
