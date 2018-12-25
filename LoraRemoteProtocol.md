@@ -1,3 +1,15 @@
+# Lora Data Channels
+* 01 - temperature
+* 02 - humidity
+* 03 - barometric pressure
+* 04 - luminosity
+* 05 - voltage of device
+* 06 - rain
+* 07 - memory free (debug)
+* 10-14 - rtc epoch (debug)
+* 20-23 - adc1150 values
+
+
 # Lora Remote Control
 
 Definition of commands to be sent to my Lora based sensor nodes. To keep messages short, byte definitions are unsigned
