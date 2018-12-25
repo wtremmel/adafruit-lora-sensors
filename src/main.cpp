@@ -124,7 +124,7 @@ float my_voltage() {
   measuredvbat /= 1024*4; // convert to voltage
 
   // LiPo battery is really strange
-  if (measuredvbat > 3.57 && measuredvbat < 3.64) {
+  if (measuredvbat > 3.57 && measuredvbat < 3.7) {
     TX_INTERVAL = 240;
   } else {
     TX_INTERVAL = 60;
