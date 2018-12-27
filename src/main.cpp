@@ -47,13 +47,10 @@ CayenneLPP lpp(51);
 #include "Adafruit_BME280.h"
 #include "Adafruit_TSL2561_U.h"
 #include <ArduinoECCX08.h>
-#include "Adafruit_ADS1115"
 
 // Global Objects
 Adafruit_Si7021 si7021;
 Adafruit_BME280 bme280;
-Adafruit_ADS1115 ads1115;
-
 Adafruit_TSL2561_Unified tsl2561 = Adafruit_TSL2561_Unified(TSL2561_ADDR_FLOAT);
 RTCZero rtc;
 
@@ -64,7 +61,6 @@ bool ecc508_found= false;
 bool voltage_found= true;
 bool rtc_init_done = false;
 bool rtc_alarm_raised = false;
-bool adc1115_found = false;
 
 bool setup_complete = false;
 bool led_dynamic = true; // LED shows if system is asleep or not
@@ -124,10 +120,15 @@ float my_voltage() {
   measuredvbat /= 1024*4; // convert to voltage
 
   // LiPo battery is really strange
-  if (measuredvbat > 3.57 && measuredvbat < 3.7) {
-    TX_INTERVAL = 240;
-  } else {
-    TX_INTERVAL = 60;
+  if (measuredvbat > 1.0) {
+    if (measuredvbat < 3.7 )
+      TX_INTERVAL = 240;
+    else if (measuredvbat < 3.9)
+      TX_INTERVAL = 180;
+    else if (measuredvbat < 4.0)
+      TX_INTERVAL = 90:
+    else
+      TX_INTERVAL = 60;
   }
 
   return measuredvbat;
@@ -158,7 +159,7 @@ void sleepfor(int seconds) {
 
   Log.verbose(F("entering sleepfor(%d)"),seconds);
   rtc.setAlarmEpoch(now + seconds);
-  rtc.enableAlarm(rtc.MATCH_YYMMDDHHMMSS);
+  rtc.enableAlarm(rtc.MATCH_MMSS);
   if (led_dynamic)
     digitalWrite(LED_BUILTIN, LOW);
   Serial.end();
@@ -213,12 +214,6 @@ void read_rain() {
   pinMode(rainPin,INPUT);
 }
 
-void read_adc1115() {
-  for (int i=0; i<=3; i++) {
-    lpp.addLuminosity(20+i,ads1115.readADC_SingleEnded(i));
-  }
-}
-
 void readSensors() {
   lpp.reset();
   setup_I2C();
@@ -234,9 +229,6 @@ void readSensors() {
   }
   if (voltage_found) {
     read_voltage();
-  }
-  if (adc1115_found) {
-    read_adc1115();
   }
   read_rain();
   // read_ram();
@@ -419,7 +411,7 @@ void setup_I2C() {
 // 0x38 VEML6070 (Light)
 // 0x39 TSL2561
 // 0x40 SI7021
-// 0x48 - 0x4b 4*AD converter
+// 0x48 4*AD converter
 // 0x4a GY49 or MAX44009 Light Sensor
 // 0x50 PCF8583P
 // 0x57 ATMEL732
@@ -454,13 +446,6 @@ void setup_I2C() {
         si7021 = Adafruit_Si7021();
         si7021_found = si7021.begin();
         Log.verbose(F("Si7021 found? %T"),si7021_found);
-      }
-
-      if ((address >= 0x48) && (address <= 0x4b)) {
-        ads1115 = Adafruit_ADS1115(address);
-        ads1115.begin();
-        ads1115_found = true;
-        Log.notice(F("ADS1115 found at 0x%x"),address);
       }
 
       if (address == 0x60) {
