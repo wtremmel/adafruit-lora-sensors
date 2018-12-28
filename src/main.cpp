@@ -121,12 +121,12 @@ float my_voltage() {
 
   // LiPo battery is really strange
   if (measuredvbat > 1.0) {
-    if (measuredvbat < 3.7 )
+    if (measuredvbat <= 3.7 )
       TX_INTERVAL = 240;
-    else if (measuredvbat < 3.9)
+    else if (measuredvbat <= 3.9)
       TX_INTERVAL = 180;
-    else if (measuredvbat < 4.0)
-      TX_INTERVAL = 90:
+    else if (measuredvbat <= 4.0)
+      TX_INTERVAL = 90;
     else
       TX_INTERVAL = 60;
   }
