@@ -6,6 +6,7 @@
 * 05 - voltage of device
 * 06 - rain
 * 07 - memory free (debug)
+* 08 - GPS location
 * 10-14 - rtc epoch (debug)
 * 20-23 - adc1150 values
 
