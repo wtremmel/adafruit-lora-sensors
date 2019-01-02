@@ -131,10 +131,10 @@ float my_voltage() {
       TX_INTERVAL = 90;
     else
       TX_INTERVAL = 60;
-    if (TX_INTERVAL < 90) {
-      TX_INTERVAL = 90;
-    }
+   }
     #endif
+  if (TX_INTERVAL < 90) {
+    TX_INTERVAL = 90;
   }
 
   return measuredvbat;
