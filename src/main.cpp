@@ -65,7 +65,7 @@ bool rtc_alarm_raised = false;
 bool setup_complete = false;
 bool led_dynamic = true; // LED shows if system is asleep or not
 
-unsigned const rainPin = A1;
+unsigned const rainPin = A0;
 
 // This EUI must be in little-endian format, so least-significant-byte
 // first. When copying an EUI from ttnctl output, this means to reverse
@@ -214,10 +214,10 @@ void read_ram() {
 
 void read_rain() {
   pinMode(rainPin,INPUT_PULLUP);
-  delay(1000);
+  delay(100);
   unsigned int r = analogRead(rainPin);
   lpp.addDigitalInput(6,4096-r);
-  pinMode(rainPin,INPUT);
+  pinMode(rainPin,INPUT_PULLDOWN);
 }
 
 void readSensors() {
