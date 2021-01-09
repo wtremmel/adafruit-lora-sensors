@@ -46,6 +46,7 @@ CayenneLPP lpp(51);
 #include "Adafruit_Si7021.h"
 #include "Adafruit_BME280.h"
 #include "Adafruit_TSL2561_U.h"
+#include "Adafruit_ADS1015.h"
 #include <ArduinoECCX08.h>
 
 // Global Objects
@@ -53,36 +54,33 @@ Adafruit_Si7021 si7021;
 Adafruit_BME280 bme280;
 Adafruit_TSL2561_Unified tsl2561 = Adafruit_TSL2561_Unified(TSL2561_ADDR_FLOAT);
 RTCZero rtc;
+Adafruit_ADS1115 ads1115;
+
 
 bool si7021_found = false;
 bool bme280_found = false;
 bool tsl2561_found= false;
 bool ecc508_found= false;
 bool voltage_found= true;
+bool ads1115_found = false;
 bool rtc_init_done = false;
 bool rtc_alarm_raised = false;
+
+bool  bme280_read_temperature = true;
+bool  bme280_read_humidity = true;
+bool  bme280_read_pressure = true;
 
 bool setup_complete = false;
 bool led_dynamic = true; // LED shows if system is asleep or not
 
 unsigned const rainPin = A0;
 
-// This EUI must be in little-endian format, so least-significant-byte
-// first. When copying an EUI from ttnctl output, this means to reverse
-// the bytes. For TTN issued EUIs the last bytes should be 0xD5, 0xB3,
-// 0x70.
-static const u1_t PROGMEM APPEUI[8]={ 0x8A, 0x30, 0x01, 0xD0, 0x7E, 0xD5, 0xB3, 0x70 };
+
+//#include "vorgarten.h"
+#include "garten.h"
+
 void os_getArtEui (u1_t* buf) { memcpy_P(buf, APPEUI, 8);}
-
-// This should also be in little endian format, see above.
-static const u1_t PROGMEM DEVEUI[8]= { 0x23, 0x34, 0x64, 0x9B, 0x05, 0x7E, 0x58, 0x00 };
 void os_getDevEui (u1_t* buf) { memcpy_P(buf, DEVEUI, 8);}
-
-// This key should be in big endian format (or, since it is not really a
-// number but a block of memory, endianness does not really apply). In
-// practice, a key taken from ttnctl can be copied as-is.
-// The key shown here is the semtech default key.
-static const u1_t PROGMEM APPKEY[16] = { 0x40, 0x87, 0x47, 0xE0, 0xEC, 0x04, 0xCC, 0x0B, 0x98, 0x72, 0x95, 0x08, 0xB8, 0x61, 0xC2, 0x4A };
 void os_getDevKey (u1_t* buf) {  memcpy_P(buf, APPKEY, 16);}
 
 static osjob_t sendjob;
@@ -92,14 +90,18 @@ static osjob_t sendjob;
 static unsigned TX_INTERVAL = 60;
 
 // Pin mapping
+#if defined(ARDUINO_SAMD_FEATHER_M0) || defined(ADAFRUIT_FEATHER_M0)
 const lmic_pinmap lmic_pins = {
 .nss = 8,
 .rxtx = LMIC_UNUSED_PIN,
 .rst = 4,
 //.dio = {3, 6, 11},
 .dio = {3, 6, LMIC_UNUSED_PIN},
+.rxtx_rx_active = 0,
+.rssi_cal = 8,              // LBT cal for the Adafruit Feather M0 LoRa, in dB
+.spi_freq = 8000000,
 };
-
+#endif
 // forward declarations
 void setup_I2C(void);
 
@@ -121,8 +123,6 @@ float my_voltage() {
 
   // LiPo battery is really strange
   if (measuredvbat > 1.0) {
-    TX_INTERVAL = (int)(580000.0 / pow(measuredvbat, 6));
-    #if 0
     if (measuredvbat <= 3.7 )
       TX_INTERVAL = 240;
     else if (measuredvbat <= 3.9)
@@ -131,12 +131,12 @@ float my_voltage() {
       TX_INTERVAL = 90;
     else
       TX_INTERVAL = 60;
-    #endif
    }
   if (TX_INTERVAL < 90) {
     TX_INTERVAL = 90;
   }
 
+  Log.verbose(F("Voltage %F"),measuredvbat);
   return measuredvbat;
 }
 
@@ -164,6 +164,8 @@ void sleepfor(int seconds) {
     return;
 
   Log.verbose(F("entering sleepfor(%d)"),seconds);
+  // delay(1000*seconds); return;
+
   rtc.setAlarmEpoch(now + seconds);
   rtc.enableAlarm(rtc.MATCH_MMSS);
   if (led_dynamic)
@@ -196,9 +198,12 @@ void read_si7021() {
 
 void read_bme280() {
   Log.verbose(F("read_bme280"));
-  lpp.addTemperature(1,bme280.readTemperature());
-  lpp.addRelativeHumidity(2,bme280.readHumidity());
-  lpp.addBarometricPressure(3,bme280.readPressure() / 100.0F);
+  if (bme280_read_temperature)
+    lpp.addTemperature(1,bme280.readTemperature());
+  if (bme280_read_humidity)
+    lpp.addRelativeHumidity(2,bme280.readHumidity());
+  if (bme280_read_pressure)
+    lpp.addBarometricPressure(3,bme280.readPressure() / 100.0F);
 }
 
 void read_voltage() {
@@ -212,12 +217,11 @@ void read_ram() {
   lpp.addDigitalInput(7, &stack_dummy - sbrk(0));
 }
 
-void read_rain() {
-  pinMode(rainPin,INPUT_PULLUP);
-  delay(100);
-  unsigned int r = analogRead(rainPin);
-  lpp.addDigitalInput(6,4096-r);
-  pinMode(rainPin,INPUT_PULLDOWN);
+void read_ads1115() {
+  for (int i=0;i<4;i++) {
+    uint16_t r = ads1115.readADC_SingleEnded(i);
+    lpp.addLuminosity(20+i, r);
+  }
 }
 
 void readSensors() {
@@ -233,13 +237,13 @@ void readSensors() {
   if (tsl2561_found) {
     read_tsl2561();
   }
+  if (ads1115_found) {
+    read_ads1115();
+  }
   if (voltage_found) {
     read_voltage();
   }
-  read_rain();
-  // read_ram();
 }
-
 
 
 void do_send(osjob_t* j){
@@ -305,6 +309,27 @@ void process_system_command(unsigned char len, unsigned char *buffer) {
     case 0x04:
       process_system_set_epoch(len-1,buffer+1);
       break;
+    default:
+      Log.error(F("Unknown system command %d"),buffer[0]);
+      break;
+  }
+}
+
+void process_sensor_bme280(unsigned char len, unsigned char *buffer) {
+  if (len == 0) {
+    Log.error(F("Zero length bme280 command"));
+    return;
+  }
+  if (buffer[0] & 0x01)
+    bme280_read_temperature = false;
+  if (buffer[0] & 0x02)
+    bme280_read_humidity = false;
+  if (buffer[0] & 0x04)
+    bme280_read_pressure = false;
+  if (buffer[0] == 0xff) {
+    bme280_read_temperature = true;
+    bme280_read_humidity = true;
+    bme280_read_pressure = true;
   }
 }
 
@@ -312,6 +337,14 @@ void process_sensor_command(unsigned char len, unsigned char *buffer) {
   if (len == 0) {
     Log.error(F("Zero length sensor command"));
     return;
+  }
+  switch (buffer[0]) {
+    case 0x11:
+      process_sensor_bme280(len-1,buffer+1);
+      break;
+    default:
+      Log.error(F("Unknown sensor command %d"),buffer[0]);
+      break;
   }
 }
 
@@ -369,6 +402,8 @@ void onEvent (ev_t ev) {
         case EV_REJOIN_FAILED:
             Log.verbose(F("EV_REJOIN_FAILED"));
             break;
+        case EV_TXSTART:
+            Log.verbose(F("EV_TXSTART"));
             break;
         case EV_TXCOMPLETE:
             Log.verbose(F("EV_TXCOMPLETE (includes waiting for RX windows)"));
@@ -376,11 +411,11 @@ void onEvent (ev_t ev) {
               Log.verbose(F("Received ack"));
             if (LMIC.dataLen) {
               Log.verbose(F("Received %d bytes of payload"),LMIC.dataLen);
-              process_received_lora(LMIC.dataLen,LMIC.frame);
+              process_received_lora(LMIC.dataLen,LMIC.frame+LMIC.dataBeg);
             }
             // Schedule next transmission
-            // os_setTimedCallback(&sendjob, os_getTime()+sec2osticks(TX_INTERVAL), do_send);
-            os_setTimedCallback(&sendjob, os_getTime()+sec2osticks(1), do_send);
+            os_setTimedCallback(&sendjob,
+               os_getTime()+sec2osticks(1), do_send);
             break;
         case EV_LOST_TSYNC:
             Log.verbose(F("EV_LOST_TSYNC"));
@@ -398,8 +433,21 @@ void onEvent (ev_t ev) {
         case EV_LINK_ALIVE:
             Log.verbose(F("EV_LINK_ALIVE"));
             break;
+        case EV_SCAN_FOUND:
+            Log.verbose(F("EV_SCAN_FOUND"));
+            break;
+        case EV_TXCANCELED:
+            Log.verbose(F("EV_TXCANCELED"));
+            break;
+        case EV_RXSTART:
+            Log.verbose(F("EV_RXSTART"));
+            break;
+        case EV_JOIN_TXCOMPLETE:
+            Log.verbose(F("EV_JOIN_TXCOMPLETE: no join accepted"));
+            break;
+
          default:
-            Log.verbose(F("Unknown event"));
+            Log.verbose(F("Unknown event %d"),ev);
             break;
     }
 }
@@ -454,6 +502,13 @@ void setup_I2C() {
         Log.verbose(F("Si7021 found? %T"),si7021_found);
       }
 
+      if (address == 0x48) {
+        ads1115 = Adafruit_ADS1115(address);
+        ads1115.begin();
+        ads1115_found = true;
+        Log.notice(F("ADS1115 found at 0x%x"),address);
+      }
+
       if (address == 0x60) {
         // ECC508
         ecc508_found = ECCX08.begin();
@@ -492,27 +547,21 @@ void setup_logging() {
 void setup() {
   setup_serial();
   delay(5000);
-
   setup_logging();
-
   setup_RTC();
-  // setup_I2C(); // happens when sensors are read
-
-
-  // setup Rain detector
   analogReadResolution(12);
-
 
     // LMIC init
   os_init();
     // Reset the MAC state. Session and pending data transfers will be discarded.
   LMIC_reset();
+  LMIC_setClockError(MAX_CLOCK_ERROR * 2 / 100);
+  LMIC_setLinkCheckMode(0);
 
+  // Start job (sending automatically starts OTAA too)
+  do_send(&sendjob);
 
-    // Start job (sending automatically starts OTAA too)
-    do_send(&sendjob);
-
-    setup_complete = true;
+  setup_complete = true;
 
 }
 
