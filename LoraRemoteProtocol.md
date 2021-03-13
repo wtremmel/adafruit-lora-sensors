@@ -18,6 +18,7 @@ Definition of commands to be sent to my Lora based sensor nodes. To keep message
 ## Byte 0 - select command group
 * 0x00 - system commands
 * 0x01 - sensor commands
+* 0x02 - sending commands
 
 
 ## Commands by group
@@ -31,6 +32,7 @@ Definition of commands to be sent to my Lora based sensor nodes. To keep message
 * + `0x04 0x00 0x00 0x00 0x00`  - send current time to the node
 * 0x05 <hours> <minutes> <seconds> - sleep now for some time (one byte each)
 * 0x06 0x00000000 - sleep now for seconds
+* 0x07 garbage collection (free mem)
 * 0xff - reboot. Reboots the node (if possible)
 
 ### Sensor commands - (Byte 0 == 0x01)
@@ -44,3 +46,11 @@ Definition of commands to be sent to my Lora based sensor nodes. To keep message
   * 0x12 - Configure TSL2561
     * 0x12 0x01 - stop luminosity reading
     * 0x12 0xff - restart reading
+
+### Sending commands - (Byte 0 == 0x02)
+* 0x1x - switch sending type
+  * 0x10 - send unconfirmed
+  * 0x11 - send confirmed
+  * 0x1f - set default (device dependent)
+* 0x20 - send all queued
+* 0x21 - send all in delete queue
