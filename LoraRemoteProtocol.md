@@ -27,7 +27,7 @@ Definition of commands to be sent to my Lora based sensor nodes. To keep message
  * `0x01 0x00` power save off 
  * `0x01 0x01` power safe on (default)
  * `0x01 0xff` drain battery (implementation specific)
-* 0x02 - Delay time. Argument is delay in seconds. So `0x02 0x3c` is 60 seconds delay/sleep between measurements. `0x02 0x00` is variable delay (default)
+* 0x02 - Delay time. Argument is delay in seconds times 5. So `0x02 0x0c` is 60 seconds delay/sleep between measurements. `0x02 0x00` is variable delay (default)
 * + `0x03` - LED usage.
   * `0x03 0x00` - LED off (default)
   * `0x03 0x01` - LED on
