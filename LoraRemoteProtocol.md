@@ -23,7 +23,10 @@ Definition of commands to be sent to my Lora based sensor nodes. To keep message
 
 ## Commands by group
 ### System commands - (Byte 0 == 0x00)
-* 0x01 - Power save (default on). Argument switches it on or off. So `0x01 0x00` is power save off, while `0x01 0x01` is power safe on.
+* 0x01 - Power save (default on). Argument switches it on or off. 
+ * `0x01 0x00` power save off 
+ * `0x01 0x01` power safe on (default)
+ * `0x01 0xff` drain battery (implementation specific)
 * 0x02 - Delay time. Argument is delay in seconds. So `0x02 0x3c` is 60 seconds delay/sleep between measurements. `0x02 0x00` is variable delay (default)
 * + `0x03` - LED usage.
   * `0x03 0x00` - LED off (default)
