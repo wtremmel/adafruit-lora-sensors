@@ -23,7 +23,7 @@ Definition of commands to be sent to my Lora based sensor nodes. To keep message
 
 ## Commands by group
 ### System commands - (Byte 0 == 0x00)
-* 0x01 - Power save (default on). Argument switches it on or off. 
+* `0x01` - Power save (default on). Argument switches it on or off. 
  * `0x01 0x00` power save off 
  * `0x01 0x01` power safe on (default)
  * `0x01 0xff` drain battery (implementation specific)
@@ -42,7 +42,7 @@ Definition of commands to be sent to my Lora based sensor nodes. To keep message
 ### Sensor commands - (Byte 0 == 0x01)
 * 0x1x - configure sensor x (see below for list)
   * 0x11 - Configure BME280
-    * 0x11 0x01 - stop temperature reading
+    * `0x11 0x01` - stop temperature reading
     * 0x11 0x02 - stop humidity reading
     * 0x11 0x04 - stop pressure reading
     * 0x11 0x07 - stop all readings (combined three bits together)
