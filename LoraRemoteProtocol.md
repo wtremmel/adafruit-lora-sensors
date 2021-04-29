@@ -28,7 +28,7 @@ Definition of commands to be sent to my Lora based sensor nodes. To keep message
   * `0x01 0x01` power safe on (default)
   * `0x01 0xff` drain battery (implementation specific)
 * 0x02 - Delay time. Argument is delay in seconds times 5. So `0x02 0x0c` is 60 seconds delay/sleep between measurements. `0x02 0x00` is variable delay (default)
-* + `0x03` - LED usage.
+* `0x03` - LED usage.
   * `0x03 0x00` - LED off (default)
   * `0x03 0x01` - LED on
   * `0x03 0x02 0xrr 0xgg 0xbb` - for RGB LEDs, set color to rrggbb
@@ -37,7 +37,7 @@ Definition of commands to be sent to my Lora based sensor nodes. To keep message
 * 0x05 <hours> <minutes> <seconds> - sleep now for some time (one byte each)
 * 0x06 0x00000000 - sleep now for seconds
 * 0x07 garbage collection (free mem)
-* 0xff - reboot. Reboots the node (if possible)
+* `0xff` - reboot. Reboots the node (if possible)
 
 ### Sensor commands - (Byte 0 == 0x01)
 * 0x1x - configure sensor x (see below for list)
