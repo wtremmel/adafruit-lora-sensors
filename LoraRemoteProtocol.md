@@ -34,27 +34,27 @@ Definition of commands to be sent to my Lora based sensor nodes. To keep message
   * `0x03 0x02 0xrr 0xgg 0xbb` - for RGB LEDs, set color to rrggbb
   * `0x03 0xff` - LED dynamic - shows status
 * `0x04 0x00 0x00 0x00 0x00`  - send current time to the node
-* 0x05 <hours> <minutes> <seconds> - sleep now for some time (one byte each)
-* 0x06 0x00000000 - sleep now for seconds
-* 0x07 garbage collection (free mem)
+* `0x05 <hours> <minutes> <seconds>` - sleep now for some time (one byte each)
+* `0x06 0x00000000` - sleep now for seconds
+* `0x07` - garbage collection (free mem). Also sends message with free memory in slot 7. 
 * `0xff` - reboot. Reboots the node (if possible)
 
 ### Sensor commands - (Byte 0 == 0x01)
-* 0x1x - configure sensor x (see below for list)
-  * 0x11 - Configure BME280
+* `0x1x` - configure sensor x (see below for list)
+  * `0x11` - Configure BME280
     * `0x11 0x01` - stop temperature reading
-    * 0x11 0x02 - stop humidity reading
-    * 0x11 0x04 - stop pressure reading
-    * 0x11 0x07 - stop all readings (combined three bits together)
-    * 0x11 0xff - restart all readings
-  * 0x12 - Configure TSL2561
-    * 0x12 0x01 - stop luminosity reading
-    * 0x12 0xff - restart reading
+    * `0x11 0x02` - stop humidity reading
+    * `0x11 0x04` - stop pressure reading
+    * `0x11 0x07` - stop all readings (combined three bits together)
+    * `0x11 0xff` or `0x11 0x00` - restart all readings
+  * `0x12` - Configure TSL2561
+    * `0x12 0x01` - stop luminosity reading
+    * `0x12 0xff` or `0x12 0x00` - restart reading
 
 ### Sending commands - (Byte 0 == 0x02)
-* 0x1x - switch sending type
-  * 0x10 - send unconfirmed
-  * 0x11 - send confirmed
-  * 0x1f - set default (device dependent)
-* 0x20 - send all queued
-* 0x21 - send all in delete queue
+* `0x01` - switch sending type
+  * `0x01 0x01` - send unconfirmed
+  * `0x01 0x02` - send confirmed
+  * `0x01 0x00` - set default (device dependent)
+* `0x20` - send all queued
+* `0x21` - send all in delete queue
